@@ -8,20 +8,17 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Environment;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
 import com.feng.audiodemo.adapter.FileAdapter;
 import com.feng.audiodemo.adapter.Item;
-import com.feng.audiodemo.record.AudioRecorder;
+import com.feng.audiodemo.audio.AudioRecorder;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -61,6 +58,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    /**
+     * 开始录音|停止录音
+     */
     private void startRecord() {
         @SuppressLint("SimpleDateFormat") String fileName = new SimpleDateFormat("yyyyMMddhhmmss").format(new Date());
         if (mAudioRecorder == null) {
@@ -75,6 +75,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    /**
+     * 显示所有录音文件
+     */
     private void showList(Context context) {
         AlertDialog.Builder builder = new AlertDialog.Builder(context, 0);
         builder.setTitle("视频列表");
