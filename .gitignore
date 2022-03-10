@@ -1,0 +1,17 @@
+.settings
+.idea/
+.gradle/
+build/
+.cxx/
+gen/
+bin/
+out/
+target/
+captures/
+project.properties
+gradle.properties
+*.iml
+local.properties
+.classpath
+.project
+.DS_Store
