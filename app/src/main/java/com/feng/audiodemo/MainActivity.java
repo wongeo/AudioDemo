@@ -1,6 +1,7 @@
 package com.feng.audiodemo;
 
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RequiresPermission;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
@@ -10,6 +11,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -20,8 +24,14 @@ import android.widget.Toast;
 import com.feng.audiodemo.adapter.FileAdapter;
 import com.feng.audiodemo.adapter.Item;
 import com.feng.audiodemo.audio.AudioRecorder;
+import com.feng.audiodemo.audio.AudioTrackPlayer;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -40,7 +50,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private Button mRecordButton, mPlayListButton;
 
-
+    private AudioTrackPlayer mTrackPlayer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +82,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     /**
      * 开始录音|停止录音
      */
+    @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     private void startRecord() {
         @SuppressLint("SimpleDateFormat") String fileName = new SimpleDateFormat("yyyyMMddhhmmss").format(new Date());
         if (mAudioRecorder == null) {
@@ -115,7 +126,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             builder.setAdapter(new FileAdapter(context, items), (dialog, which) -> {
                 dialog.dismiss();
                 Item file = items.get(which);
-//                                mPresenter.playWithUri(file.getUri());
+                play(file.getUri());
             });
             builder.create().show();
         })).exceptionally(throwable -> {
@@ -125,11 +136,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
 
+    private void play(String url) {
+        mTrackPlayer = new AudioTrackPlayer(this);
+        mTrackPlayer.play(url);
+    }
+
     private static final String[] sPermissions = {
             Manifest.permission.RECORD_AUDIO,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.READ_EXTERNAL_STORAGE,
     };
+
     /**
      * 申请录音权限
      */

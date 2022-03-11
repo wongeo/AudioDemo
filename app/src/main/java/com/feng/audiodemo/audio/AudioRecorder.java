@@ -8,6 +8,8 @@ import android.media.MediaRecorder;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.annotation.RequiresPermission;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -34,7 +36,7 @@ public class AudioRecorder {
     private int bufferSizeInBytes = 0;
 
     //录音对象
-    private AudioRecord mAudioRecord;
+    private AudioRecord mAudioRecord = new AudioRecord(AUDIO_INPUT, AUDIO_SAMPLE_RATE, AUDIO_CHANNEL, AUDIO_ENCODING, bufferSizeInBytes);
 
     //录音状态
     private State mState = State.NONE;
@@ -53,7 +55,7 @@ public class AudioRecorder {
      *
      * @param fileName 文件名
      */
-    @SuppressLint("MissingPermission")
+    @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     public void createDefaultAudio(String fileName) {
         mFileName = fileName;
         // 获得缓冲区字节大小
