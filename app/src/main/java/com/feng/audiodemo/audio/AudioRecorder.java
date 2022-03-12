@@ -27,16 +27,19 @@ public class AudioRecorder {
     //采用频率
     //44100是目前的标准，但是某些设备仍然支持22050，16000，11025
     //采样频率一般共分为22.05KHz、44.1KHz、48KHz三个等级
+    //采样率，播放的音频每秒有多少次采样
     private final static int AUDIO_SAMPLE_RATE = 16000;
     //声道 单声道
     private final static int AUDIO_CHANNEL = AudioFormat.CHANNEL_IN_MONO;
     //编码
+    //数据位宽，选择 16bit ，能够兼容所有 Android 设备
     private final static int AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
     // 缓冲区字节大小
+    //缓冲区大小，通过 AudioTrack.getMinBufferSize 运算得出
     private int bufferSizeInBytes = 0;
 
     //录音对象
-    private AudioRecord mAudioRecord = new AudioRecord(AUDIO_INPUT, AUDIO_SAMPLE_RATE, AUDIO_CHANNEL, AUDIO_ENCODING, bufferSizeInBytes);
+    private AudioRecord mAudioRecord;
 
     //录音状态
     private State mState = State.NONE;

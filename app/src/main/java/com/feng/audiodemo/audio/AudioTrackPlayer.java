@@ -1,7 +1,6 @@
 package com.feng.audiodemo.audio;
 
 import android.content.Context;
-import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -22,40 +21,61 @@ public class AudioTrackPlayer {
         mContext = context;
     }
 
+    public static final int RATE_IN_HZ_16K = 16000;
+    public static final int RATE_IN_HZ_48K = 48000;
+
     public void play(String uri) {
-        this.stop();
-        byte[] data = new byte[264848];
-        AudioAttributes attributes = new AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .build();
-        AudioFormat audioFormat = new AudioFormat.Builder()
-                .setSampleRate(8000)
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                .build();
-        mAudioTrack = new AudioTrack(attributes, audioFormat, data.length, AudioTrack.MODE_STATIC, AudioManager.AUDIO_SESSION_ID_GENERATE);
-        Log.d(TAG, "Writing audio data...");
+
+        int sampleRateInHz = RATE_IN_HZ_48K;
+        int channelConfig = AudioFormat.CHANNEL_IN_STEREO;
+        int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+
+        int bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
+        if (bufferSizeInBytes == AudioTrack.ERROR_BAD_VALUE) {
+            Log.e(TAG, "Invalid parameter !");
+            return;
+        }
+        Log.i(TAG, "bufferSizeInBytes = " + bufferSizeInBytes + " bytes !");
+
+        byte[] data = new byte[bufferSizeInBytes * 2];
+
+        mAudioTrack = new AudioTrack(
+                AudioManager.STREAM_MUSIC,      //streamType 流类型，AudioManager 中定义了音频的类型，可大致分为 STREAM_MUSIC 、 STREAM_RINHG 等
+                sampleRateInHz,                 //sampleRateInHz 采样率，播放的音频每秒有多少次采样
+                channelConfig,                  //channelConfig 声道数配置，单声道和双声道
+                audioFormat,                    //audioFormat 数据位宽，选择 16bit ，能够兼容所有 Android 设备
+                bufferSizeInBytes,              //bufferSizeInBytes 缓冲区大小，通过 AudioTrack.getMinBufferSize 运算得出
+                AudioTrack.MODE_STREAM          //mode 播放模式 ： MODE_STATIC 一次写入，MODE_STREAM 多次写入
+        );
+        if (mAudioTrack.getState() == AudioTrack.STATE_UNINITIALIZED) {
+            Log.e(TAG, "初始化失败 !");
+            return;
+        }
+
+        Log.d(TAG, "开始填充数据...");
         InputStream fis = null;
         try {
             fis = new FileInputStream(new File(uri));
-            while (fis.read(data, 0, data.length) != -1) {
-                this.mAudioTrack.write(data, 0, data.length);
+            Log.d(TAG, "playing");
+            while (fis.read(data, 0, data.length) > 0) {
+                mAudioTrack.write(data, 0, data.length);
+                mAudioTrack.play();
             }
+            Log.d(TAG, "complete");
+            mAudioTrack.stop();
+            mAudioTrack.release();
         } catch (Exception ex) {
-            ex.printStackTrace();
+            Log.d(TAG, Log.getStackTraceString(ex));
         } finally {
             close(fis);
         }
-
-        mAudioTrack.play();
-        Log.d(TAG, "Playing");
     }
 
     public void stop() {
         if (this.mAudioTrack != null) {
-            Log.d(TAG, "Stopping");
+            Log.d(TAG, "stop");
             mAudioTrack.stop();
-            Log.d(TAG, "Releasing");
+            Log.d(TAG, "release");
             mAudioTrack.release();
             Log.d(TAG, "Nulling");
         }
