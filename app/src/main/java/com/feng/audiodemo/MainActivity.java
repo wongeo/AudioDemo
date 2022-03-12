@@ -11,46 +11,32 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.media.AudioFormat;
-import android.media.AudioManager;
-import android.media.AudioTrack;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.Toast;
 
 import com.feng.audiodemo.adapter.FileAdapter;
 import com.feng.audiodemo.adapter.Item;
 import com.feng.audiodemo.audio.AudioRecorder;
 import com.feng.audiodemo.audio.AudioTrackPlayer;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
 
     private AudioRecorder mAudioRecorder;
 
-    private Button mRecordButton, mPlayListButton;
+    private Button mRecordButton, mPlayListButton, mPlayButton;
 
     private AudioTrackPlayer mTrackPlayer;
+    private String mUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,10 +50,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void initView() {
         mRecordButton = findViewById(R.id.record_btn);
         mPlayListButton = findViewById(R.id.play_list_btn);
-
+        mPlayButton = findViewById(R.id.play_btn);
 
         mRecordButton.setOnClickListener(this);
         mPlayListButton.setOnClickListener(this);
+        mPlayButton.setOnClickListener(this);
     }
 
     @Override
@@ -76,6 +63,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             startRecord();
         } else if (v == mPlayListButton) {
             showList(this);
+        } else if (v == mPlayButton) {
+            onPlay();
         }
     }
 
@@ -125,8 +114,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         future.whenComplete((items, throwable) -> runOnUiThread(() -> {
             builder.setAdapter(new FileAdapter(context, items), (dialog, which) -> {
                 dialog.dismiss();
-                Item file = items.get(which);
-                play(file.getUri());
+                Item item = items.get(which);
+                mUri = item.getUri();
+                onPlay();
             });
             builder.create().show();
         })).exceptionally(throwable -> {
@@ -136,9 +126,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
 
-    private void play(String url) {
-        mTrackPlayer = new AudioTrackPlayer(this);
-        mTrackPlayer.play(url);
+    private void onPlay() {
+        if (mTrackPlayer == null) {
+            mTrackPlayer = new AudioTrackPlayer(this);
+        }
+        AudioTrackPlayer.State state = mTrackPlayer.getState();
+        if (state == AudioTrackPlayer.State.START) {
+            mTrackPlayer.pause();
+            mPlayButton.setText("播放");
+        } else if (state == AudioTrackPlayer.State.PAUSE) {
+            mTrackPlayer.start();
+            mPlayButton.setText("暂停");
+        } else {
+            mTrackPlayer.setDataSource(mUri);
+            mTrackPlayer.prepare();
+            mPlayButton.setText("暂停");
+        }
     }
 
     private static final String[] sPermissions = {

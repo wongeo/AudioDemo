@@ -19,8 +19,8 @@
         android:id="@+id/record_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="28dp"
-        android:layout_marginTop="72dp"
+        android:layout_marginStart="56dp"
+        android:layout_marginTop="40dp"
         android:text="录音"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -29,29 +29,17 @@
         android:id="@+id/play_list_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="64dp"
-        android:layout_marginTop="72dp"
         android:text="播放列表"
         app:layout_constraintStart_toEndOf="@id/record_btn"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="@id/record_btn" />
 
     <Button
-        android:id="@+id/button3"
+        android:id="@+id/play_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="46dp"
-        android:layout_marginBottom="253dp"
-        android:text="Button"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:text="播放"
+        app:layout_constraintStart_toEndOf="@id/play_list_btn"
+        app:layout_constraintTop_toTopOf="@id/play_list_btn" />
 
-    <Button
-        android:id="@+id/button4"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="252dp"
-        android:text="Button"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/button3" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

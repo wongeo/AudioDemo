@@ -16,6 +16,18 @@ public class AudioTrackPlayer {
 
     private Context mContext;
     private AudioTrack mAudioTrack;
+    private Thread mPlayThread;
+
+    public enum State {
+        NONE,
+        LOADING,
+        START,
+        PAUSE,
+        ERROR,
+        STOP,
+    }
+
+    private volatile State mState = State.NONE;
 
     public AudioTrackPlayer(Context context) {
         mContext = context;
@@ -24,7 +36,26 @@ public class AudioTrackPlayer {
     public static final int RATE_IN_HZ_16K = 16000;
     public static final int RATE_IN_HZ_48K = 48000;
 
-    public void play(String uri) {
+    private String mUri;
+
+    /**
+     * 设置播放地址
+     */
+    public void setDataSource(String uri) {
+        mUri = uri;
+    }
+
+    /**
+     * 准备播放
+     */
+    public void prepare() {
+        mPlayThread = new PlayThread();
+        mPlayThread.start();
+    }
+
+    private final Object mLock = new Object();
+
+    private void play(String uri) {
 
         int sampleRateInHz = RATE_IN_HZ_48K;
         int channelConfig = AudioFormat.CHANNEL_IN_STEREO;
@@ -58,12 +89,23 @@ public class AudioTrackPlayer {
             fis = new FileInputStream(new File(uri));
             Log.d(TAG, "playing");
             while (fis.read(data, 0, data.length) > 0) {
-                mAudioTrack.write(data, 0, data.length);
-                mAudioTrack.play();
+                synchronized (mLock) {
+                    if (mState == State.PAUSE) {
+                        Log.d(TAG, "pause");
+                        mLock.wait();
+                        Log.d(TAG, "start");
+                    } else if (mState == State.STOP) {
+                        break;
+                    }
+                    mState = State.START;
+                    mAudioTrack.write(data, 0, data.length);
+                    mAudioTrack.play();
+                }
             }
             Log.d(TAG, "complete");
             mAudioTrack.stop();
             mAudioTrack.release();
+            mState = State.NONE;
         } catch (Exception ex) {
             Log.d(TAG, Log.getStackTraceString(ex));
         } finally {
@@ -71,7 +113,25 @@ public class AudioTrackPlayer {
         }
     }
 
+    private final class PlayThread extends Thread {
+        @Override
+        public void run() {
+            play(mUri);
+        }
+    }
+
+    public void start() {
+        synchronized (mLock) {
+            mLock.notify();
+        }
+    }
+
+    public void pause() {
+        mState = State.PAUSE;
+    }
+
     public void stop() {
+        mState = State.STOP;
         if (this.mAudioTrack != null) {
             Log.d(TAG, "stop");
             mAudioTrack.stop();
@@ -89,5 +149,9 @@ public class AudioTrackPlayer {
         } catch (Throwable throwable) {
 
         }
+    }
+
+    public State getState() {
+        return mState;
     }
 }
