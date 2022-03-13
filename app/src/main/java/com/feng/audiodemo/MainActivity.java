@@ -71,12 +71,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     /**
      * 开始录音|停止录音
      */
-    @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     private void startRecord() {
-        @SuppressLint("SimpleDateFormat") String fileName = new SimpleDateFormat("yyyyMMddhhmmss").format(new Date());
+        @SuppressLint("SimpleDateFormat") String fileName = new SimpleDateFormat("yyyyMMdd_hh:mm:ss").format(new Date());
         if (mAudioRecorder == null) {
             mAudioRecorder = new AudioRecorder(this);
-            mAudioRecorder.createDefaultAudio(fileName);
+            String filePath = getExternalFilesDir(null) + "/" + fileName + ".raw";
+            mAudioRecorder.setFilePath(filePath);
             mAudioRecorder.startRecord();
             mRecordButton.setText("停止录音");
         } else {

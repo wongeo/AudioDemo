@@ -55,7 +55,7 @@ public class AudioTrackPlayer {
 
     private final Object mLock = new Object();
 
-    private void play(String uri) {
+    private void handleTrackPlay(String uri) {
 
         int sampleRateInHz = RATE_IN_HZ_48K;
         int channelConfig = AudioFormat.CHANNEL_IN_STEREO;
@@ -102,21 +102,23 @@ public class AudioTrackPlayer {
                     mAudioTrack.play();
                 }
             }
-            Log.d(TAG, "complete");
-            mAudioTrack.stop();
-            mAudioTrack.release();
-            mState = State.NONE;
         } catch (Exception ex) {
             Log.d(TAG, Log.getStackTraceString(ex));
         } finally {
             close(fis);
+            Log.d(TAG, "complete");
+            if (mAudioTrack != null) {
+                mAudioTrack.stop();
+                mAudioTrack.release();
+            }
+            mState = State.NONE;
         }
     }
 
     private final class PlayThread extends Thread {
         @Override
         public void run() {
-            play(mUri);
+            handleTrackPlay(mUri);
         }
     }
 
