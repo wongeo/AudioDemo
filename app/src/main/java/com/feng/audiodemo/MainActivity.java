@@ -1,7 +1,6 @@
 package com.feng.audiodemo;
 
 import androidx.annotation.RequiresApi;
-import androidx.annotation.RequiresPermission;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
@@ -18,10 +17,16 @@ import android.widget.Button;
 
 import com.feng.audiodemo.adapter.FileAdapter;
 import com.feng.audiodemo.adapter.Item;
+import com.feng.audiodemo.audio.AudioCodec;
 import com.feng.audiodemo.audio.AudioRecorder;
 import com.feng.audiodemo.audio.AudioTrackPlayer;
+import com.feng.audiodemo.audio.TransPCMHandlerPure;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -33,39 +38,53 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private AudioRecorder mAudioRecorder;
 
-    private Button mRecordButton, mPlayListButton, mPlayButton;
+    private Button mRecordButton, mPlaylistButton, mPlayButton, mTranscodeButton;
 
     private AudioTrackPlayer mTrackPlayer;
-    private String mUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        initView();
         verifyPermissions(this);
+        initView();
+        initPlayer();
     }
 
     private void initView() {
         mRecordButton = findViewById(R.id.record_btn);
-        mPlayListButton = findViewById(R.id.play_list_btn);
+        mPlaylistButton = findViewById(R.id.play_list_btn);
         mPlayButton = findViewById(R.id.play_btn);
+        mTranscodeButton = findViewById(R.id.transcode_btn);
+
 
         mRecordButton.setOnClickListener(this);
-        mPlayListButton.setOnClickListener(this);
+        mPlaylistButton.setOnClickListener(this);
         mPlayButton.setOnClickListener(this);
+        mTranscodeButton.setOnClickListener(this);
+    }
+
+    private void initPlayer() {
+        mTrackPlayer = new AudioTrackPlayer(this);
+        mTrackPlayer.setOnStateChangeListener(mOnStateChangeListener);
     }
 
     @Override
     public void onClick(View v) {
         if (v == mRecordButton) {
             startRecord();
-        } else if (v == mPlayListButton) {
+        } else if (v == mPlaylistButton) {
             showList(this);
         } else if (v == mPlayButton) {
-            onPlay();
+            onStartOrPause();
+        } else if (mTranscodeButton == v) {
+            onTranscodeButton();
         }
+    }
+
+    private void onTranscodeButton() {
+//        TransPCMHandlerPure pcmHandlerPure = new TransPCMHandlerPure(src, desc);
+//        pcmHandlerPure.start();
     }
 
     /**
@@ -115,8 +134,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             builder.setAdapter(new FileAdapter(context, items), (dialog, which) -> {
                 dialog.dismiss();
                 Item item = items.get(which);
-                mUri = item.getUri();
-                onPlay();
+                String uri = item.getUri();
+                onPlay(uri);
             });
             builder.create().show();
         })).exceptionally(throwable -> {
@@ -126,22 +145,35 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
 
-    private void onPlay() {
-        if (mTrackPlayer == null) {
-            mTrackPlayer = new AudioTrackPlayer(this);
-        }
+    public void onStartOrPause() {
         AudioTrackPlayer.State state = mTrackPlayer.getState();
         if (state == AudioTrackPlayer.State.START) {
             mTrackPlayer.pause();
-            mPlayButton.setText("播放");
         } else if (state == AudioTrackPlayer.State.PAUSE) {
             mTrackPlayer.start();
-            mPlayButton.setText("暂停");
-        } else {
-            mTrackPlayer.setDataSource(mUri);
-            mTrackPlayer.prepare();
-            mPlayButton.setText("暂停");
         }
+    }
+
+    private void onPlay(String uri) {
+        mTrackPlayer.stop();
+        mTrackPlayer.setDataSource(uri);
+        mTrackPlayer.prepare();
+    }
+
+    private final AudioTrackPlayer.OnStateChangeListener mOnStateChangeListener = (src, desc) -> runOnUiThread(() -> handleStateChangeOnUiThread(src, desc));
+
+    private void handleStateChangeOnUiThread(AudioTrackPlayer.State src, AudioTrackPlayer.State desc) {
+        if (desc == AudioTrackPlayer.State.START) {
+            mPlayButton.setText("暂停");
+        } else if (desc == AudioTrackPlayer.State.PAUSE) {
+            mPlayButton.setText("播放");
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mTrackPlayer.stop();
     }
 
     private static final String[] sPermissions = {

@@ -4,12 +4,11 @@ import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.util.Log;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
+import java.io.IOException;
 
 public class AudioTrackPlayer {
     public static final String TAG = "AudioTrackPlayer";
@@ -33,8 +32,19 @@ public class AudioTrackPlayer {
         mContext = context;
     }
 
+    private OnStateChangeListener mOnStateChangeListener;
+    private OnErrorListener mOnErrorListener;
+
+    public void setOnStateChangeListener(OnStateChangeListener listener) {
+        mOnStateChangeListener = listener;
+    }
+
+    public void setOnErrorListener(OnErrorListener onErrorListener) {
+        mOnErrorListener = onErrorListener;
+    }
+
     public static final int RATE_IN_HZ_16K = 16000;
-    public static final int RATE_IN_HZ_48K = 48000;
+    public static final int RATE_IN_HZ_44K = 44100;
 
     private String mUri;
 
@@ -57,9 +67,18 @@ public class AudioTrackPlayer {
 
     private void handleTrackPlay(String uri) {
 
-        int sampleRateInHz = RATE_IN_HZ_48K;
+        int sampleRateInHz = RATE_IN_HZ_44K;
         int channelConfig = AudioFormat.CHANNEL_IN_STEREO;
         int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(uri);
+            MediaFormat format = extractor.getTrackFormat(0);
+            sampleRateInHz = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         int bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
         if (bufferSizeInBytes == AudioTrack.ERROR_BAD_VALUE) {
@@ -68,8 +87,7 @@ public class AudioTrackPlayer {
         }
         Log.i(TAG, "bufferSizeInBytes = " + bufferSizeInBytes + " bytes !");
 
-        byte[] data = new byte[bufferSizeInBytes * 2];
-
+        byte[] data = new byte[bufferSizeInBytes];
         mAudioTrack = new AudioTrack(
                 AudioManager.STREAM_MUSIC,      //streamType 流类型，AudioManager 中定义了音频的类型，可大致分为 STREAM_MUSIC 、 STREAM_RINHG 等
                 sampleRateInHz,                 //sampleRateInHz 采样率，播放的音频每秒有多少次采样
@@ -84,34 +102,36 @@ public class AudioTrackPlayer {
         }
 
         Log.d(TAG, "开始填充数据...");
-        InputStream fis = null;
+        ISource fis = null;
         try {
-            fis = new FileInputStream(new File(uri));
-            Log.d(TAG, "playing");
-            while (fis.read(data, 0, data.length) > 0) {
+            fis = new FileSourceWithCodec(uri);
+            onStateChange(State.START);
+            mIsRunning = true;
+            mIsPause = false;
+            int len = 0;
+            while ((len = fis.read(data)) > 0) {
                 synchronized (mLock) {
-                    if (mState == State.PAUSE) {
-                        Log.d(TAG, "pause");
+                    if (mIsPause) {
+                        onStateChange(State.PAUSE);
                         mLock.wait();
-                        Log.d(TAG, "start");
-                    } else if (mState == State.STOP) {
+                        onStateChange(State.START);
+                    } else if (!mIsRunning) {
+                        onStateChange(State.STOP);
                         break;
                     }
-                    mState = State.START;
-                    mAudioTrack.write(data, 0, data.length);
+                    mAudioTrack.write(data, 0, len);
                     mAudioTrack.play();
                 }
             }
         } catch (Exception ex) {
-            Log.d(TAG, Log.getStackTraceString(ex));
+            String msg = Log.getStackTraceString(ex);
+            Log.d(TAG, msg);
+            onStateChange(State.ERROR);
+            mOnErrorListener.onError(-1, msg);
         } finally {
-            close(fis);
+            ISource.close(fis);
             Log.d(TAG, "complete");
-            if (mAudioTrack != null) {
-                mAudioTrack.stop();
-                mAudioTrack.release();
-            }
-            mState = State.NONE;
+            reset();
         }
     }
 
@@ -124,36 +144,57 @@ public class AudioTrackPlayer {
 
     public void start() {
         synchronized (mLock) {
+            mIsPause = false;
             mLock.notify();
         }
     }
 
     public void pause() {
-        mState = State.PAUSE;
-    }
-
-    public void stop() {
-        mState = State.STOP;
-        if (this.mAudioTrack != null) {
-            Log.d(TAG, "stop");
-            mAudioTrack.stop();
-            Log.d(TAG, "release");
-            mAudioTrack.release();
-            Log.d(TAG, "Nulling");
+        synchronized (mLock) {
+            if (mState == State.START) {
+                mIsPause = true;
+            }
         }
     }
 
-    private static void close(Closeable closeable) {
-        try {
-            if (closeable != null) {
-                closeable.close();
+    public void reset() {
+        synchronized (mLock) {
+            if (mAudioTrack != null) {
+                mAudioTrack.stop();
+                mAudioTrack.release();
             }
-        } catch (Throwable throwable) {
+        }
+    }
 
+    //控制变量，用来控制停止和暂停
+    private boolean mIsPause;
+    private boolean mIsRunning;
+
+    public void stop() {
+        synchronized (mLock) {
+            mIsRunning = false;
         }
     }
 
     public State getState() {
         return mState;
+    }
+
+    /**
+     * 播放状态切换回调
+     */
+    private void onStateChange(State state) {
+        State from = mState;
+        mState = state;
+        Log.d(TAG, "onStateChange from=" + from + " to=" + state);
+        mOnStateChangeListener.onChange(from, state);
+    }
+
+    public interface OnStateChangeListener {
+        void onChange(State src, State desc);
+    }
+
+    public interface OnErrorListener {
+        void onError(int code, String msg);
     }
 }

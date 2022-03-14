@@ -19,8 +19,8 @@
         android:id="@+id/record_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="56dp"
-        android:layout_marginTop="40dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="48dp"
         android:text="录音"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -41,5 +41,12 @@
         app:layout_constraintStart_toEndOf="@id/play_list_btn"
         app:layout_constraintTop_toTopOf="@id/play_list_btn" />
 
+    <Button
+        android:id="@+id/transcode_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="转码"
+        app:layout_constraintStart_toEndOf="@id/play_btn"
+        app:layout_constraintTop_toTopOf="@id/play_btn" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
