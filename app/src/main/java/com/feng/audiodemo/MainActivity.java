@@ -10,6 +10,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.audiofx.Visualizer;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -19,6 +20,7 @@ import com.feng.audiodemo.adapter.FileAdapter;
 import com.feng.audiodemo.adapter.Item;
 import com.feng.audiodemo.audio.AudioRecorder;
 import com.feng.audiodemo.audio.AudioTrackPlayer;
+import com.feng.audiodemo.view.AudioView;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -26,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Logger;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
@@ -35,6 +38,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Button mRecordButton, mPlaylistButton, mPlayButton, mTranscodeButton;
 
     private AudioTrackPlayer mTrackPlayer;
+    private AudioView audioView, audioView2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,7 +54,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mPlaylistButton = findViewById(R.id.play_list_btn);
         mPlayButton = findViewById(R.id.play_btn);
         mTranscodeButton = findViewById(R.id.transcode_btn);
-
+        audioView = findViewById(R.id.audioView1);
+        audioView2 = findViewById(R.id.audioView2);
 
         mRecordButton.setOnClickListener(this);
         mPlaylistButton.setOnClickListener(this);
@@ -73,6 +78,53 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             onStartOrPause();
         } else if (mTranscodeButton == v) {
             onTranscodeButton();
+        }
+    }
+
+    private Visualizer.OnDataCaptureListener dataCaptureListener = new Visualizer.OnDataCaptureListener() {
+        @Override
+        public void onWaveFormDataCapture(Visualizer visualizer, final byte[] waveform, int samplingRate) {
+            audioView.post(new Runnable() {
+                @Override
+                public void run() {
+                    audioView.setWaveData(waveform);
+                }
+            });
+        }
+
+        @Override
+        public void onFftDataCapture(Visualizer visualizer, final byte[] fft, int samplingRate) {
+            audioView2.post(new Runnable() {
+                @Override
+                public void run() {
+                    audioView2.setWaveData(fft);
+                }
+            });
+        }
+    };
+
+    private Visualizer visualizer;
+
+    private void initVisualizer() {
+        try {
+            int mediaPlayerId = mTrackPlayer.getMediaPlayerId();
+            if (visualizer != null) {
+                visualizer.release();
+            }
+            visualizer = new Visualizer(mediaPlayerId);
+
+            /**
+             *可视化数据的大小： getCaptureSizeRange()[0]为最小值，getCaptureSizeRange()[1]为最大值
+             */
+            int captureSize = Visualizer.getCaptureSizeRange()[1];
+            int captureRate = Visualizer.getMaxCaptureRate() * 3 / 4;
+
+            visualizer.setCaptureSize(captureSize);
+            visualizer.setDataCaptureListener(dataCaptureListener, captureRate, true, true);
+            visualizer.setScalingMode(Visualizer.SCALING_MODE_NORMALIZED);
+            visualizer.setEnabled(true);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -161,11 +213,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mTrackPlayer.prepare();
     }
 
+
     private final AudioTrackPlayer.OnStateChangeListener mOnStateChangeListener = (src, desc) -> runOnUiThread(() -> handleStateChangeOnUiThread(src, desc));
 
     private void handleStateChangeOnUiThread(AudioTrackPlayer.State src, AudioTrackPlayer.State desc) {
         if (desc == AudioTrackPlayer.State.START) {
             mPlayButton.setText("暂停");
+            initVisualizer();
         } else if (desc == AudioTrackPlayer.State.PAUSE) {
             mPlayButton.setText("播放");
         }
@@ -181,6 +235,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Manifest.permission.RECORD_AUDIO,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.MODIFY_AUDIO_SETTINGS
     };
 
     /**

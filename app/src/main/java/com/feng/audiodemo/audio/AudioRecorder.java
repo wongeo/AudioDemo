@@ -11,6 +11,7 @@ import android.util.Log;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.RandomAccessFile;
 
 /**
  * 实现录音
@@ -79,11 +80,10 @@ public class AudioRecorder {
         if (file.exists()) {
             file.delete();
         }
-        FileOutputStream fos = null;
+        RandomAccessFile fos = null;
         try {
             byte[] data = new byte[bufferSizeInBytes];
-
-            fos = new FileOutputStream(file);
+            fos = new RandomAccessFile(file, "rw");
             while (mAudioRecord.read(data, 0, data.length) > 0) {
                 if (mState == State.STOP) {
                     break;
@@ -91,6 +91,10 @@ public class AudioRecorder {
                 mState = State.START;
                 fos.write(data, 0, data.length);
             }
+            WavHeader header = WavHeader.create((int) file.length(), mAudioRecord.getSampleRate(), (short) mAudioRecord.getChannelCount(), (short) 16);
+            fos.seek(0);
+            fos.write(header.toBytes());
+            file.renameTo(new File(mFilePath.replace(".raw", ".wav")));
         } catch (Exception e) {
             Log.e(TAG, Log.getStackTraceString(e));
         } finally {
@@ -101,6 +105,7 @@ public class AudioRecorder {
             }
             mState = State.NONE;
         }
+
     }
 
     /**
@@ -132,13 +137,6 @@ public class AudioRecorder {
         mState = State.STOP;
     }
 
-
-    /**
-     * 将音频信息写入文件
-     */
-    private void writeDataTOFile(String filePath) {
-
-    }
 
     /**
      * 获取录音对象的状态

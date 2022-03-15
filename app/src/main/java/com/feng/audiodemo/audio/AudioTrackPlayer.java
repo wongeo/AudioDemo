@@ -17,6 +17,10 @@ public class AudioTrackPlayer {
     private AudioTrack mAudioTrack;
     private Thread mPlayThread;
 
+    public int getMediaPlayerId() {
+        return mAudioTrack.getAudioSessionId();
+    }
+
     public enum State {
         NONE,
         LOADING,
