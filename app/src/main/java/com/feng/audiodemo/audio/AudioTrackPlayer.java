@@ -104,11 +104,15 @@ public class AudioTrackPlayer {
         Log.d(TAG, "开始填充数据...");
         ISource fis = null;
         try {
-            fis = new FileSourceWithCodec(uri);
+            if (uri.endsWith(".mp3")) {
+                fis = new FileSourceWithCodec(uri);
+            } else {
+                fis = new FileSource(uri);
+            }
             onStateChange(State.START);
             mIsRunning = true;
             mIsPause = false;
-            int len = 0;
+            int len;
             while ((len = fis.read(data)) > 0) {
                 synchronized (mLock) {
                     if (mIsPause) {

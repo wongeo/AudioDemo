@@ -7,9 +7,9 @@ import java.io.IOException;
  */
 public class FileSourceWithCodec implements ISource {
 
-    AudioCodec mCodec;
+    private AudioCodec mCodec;
 
-    public FileSourceWithCodec(String filePath) {
+    public FileSourceWithCodec(String filePath) throws IOException {
         mCodec = AudioCodec.create(filePath);
     }
 

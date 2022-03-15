@@ -17,16 +17,10 @@ import android.widget.Button;
 
 import com.feng.audiodemo.adapter.FileAdapter;
 import com.feng.audiodemo.adapter.Item;
-import com.feng.audiodemo.audio.AudioCodec;
 import com.feng.audiodemo.audio.AudioRecorder;
 import com.feng.audiodemo.audio.AudioTrackPlayer;
-import com.feng.audiodemo.audio.TransPCMHandlerPure;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -85,6 +79,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void onTranscodeButton() {
 //        TransPCMHandlerPure pcmHandlerPure = new TransPCMHandlerPure(src, desc);
 //        pcmHandlerPure.start();
+        String src = this.getExternalFilesDir(null).getAbsolutePath() + "/abc.mp3";
+        String desc = this.getExternalFilesDir(null).getAbsolutePath() + "/abc.wav";
+        File file = new File(desc);
+        if (file.exists()) {
+            file.delete();
+        }
+//        codec.start();
     }
 
     /**
