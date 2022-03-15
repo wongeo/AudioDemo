@@ -7,10 +7,10 @@ import java.io.IOException;
  */
 public class FileSourceWithCodec implements ISource {
 
-    private AudioCodec mCodec;
+    private final AudioCodec codec;
 
     public FileSourceWithCodec(String filePath) throws IOException {
-        mCodec = AudioCodec.create(filePath);
+        codec = AudioCodec.create(filePath);
     }
 
     //上次遗留的字节，需要下次优先追加上
@@ -28,16 +28,19 @@ public class FileSourceWithCodec implements ISource {
         }
 
         while (true) {
-            AudioCodec.Data _data = mCodec.read();
-            int code = _data.code;
+            //读取解码后的数据
+            AudioCodec.Data raw = codec.read();
+            int code = raw.code;
             if (code == -2 || code == -3) {
+                //忽略继续读下一次的
                 continue;
             }
             if (code == -1) {
+                //数据已经读完
                 len = -1;
                 break;
             }
-            bytes = _data.bytes;
+            bytes = raw.bytes;
             if (offset + bytes.length > data.length) {
                 break;
             }
