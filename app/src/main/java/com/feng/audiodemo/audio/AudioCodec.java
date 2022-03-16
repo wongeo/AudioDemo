@@ -3,8 +3,11 @@ package com.feng.audiodemo.audio;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.RequiresApi;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -13,7 +16,7 @@ import java.nio.ByteBuffer;
  * 解码
  */
 public class AudioCodec {
-    private static final long TIME_OUT = 5000;
+    private static final long TIME_OUT_US = 15 * 1000 * 1000;
     public static final String TAG = "AudioCodec";
     private final String mFilePath;
     private MediaCodec codec;
@@ -68,19 +71,20 @@ public class AudioCodec {
             ByteBuffer inputBuffer = codec.getInputBuffer(inputBufferIndex);//拿到inputBuffer
             inputBuffer.clear();//清空之前传入inputBuffer内的数据
             int sampleSize = extractor.readSampleData(inputBuffer, 0);//MediaExtractor读取数据到inputBuffer中
-            data.positionUs = extractor.getSampleTime();
+            data.positionUs = extractor.getSampleTime();//获取pts
             if (sampleSize < 0) {
                 //小于0 代表所有数据已读取完成
                 data.code = -1;
                 return data;
             }
             codec.queueInputBuffer(inputBufferIndex, 0, sampleSize, 0, 0);//通知MediaDecode解码刚刚传入的数据
-            extractor.advance();//MediaExtractor移动到下一取样处
+            extractor.advance();//获取下一帧
+        } else {
+            codec.queueInputBuffer(inputBufferIndex, 0, 0, extractor.getSampleSize(), MediaCodec.BUFFER_FLAG_END_OF_STREAM);
         }
 
-        //获取解码得到的byte[]数据 参数BufferInfo上面已介绍 10000同样为等待时间 同上-1代表一直等待，0代表不等待。此处单位为微秒
-        //此处建议不要填-1 有些时候并没有数据输出，那么他就会一直卡在这 等待
-        int outputBufferIndex = codec.dequeueOutputBuffer(decodeBufferInfo, 10000);
+        //此处建议不要填-1 有些时候并没有数据输出，那么他就会一直卡在这 等待,此处单位为微秒
+        int outputBufferIndex = codec.dequeueOutputBuffer(decodeBufferInfo, TIME_OUT_US);//如果timeoutUs填写数字较低，不如10000，会经常返回-1
 
         switch (outputBufferIndex) {
             case MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED:
@@ -108,6 +112,12 @@ public class AudioCodec {
         return mDurationUs / 1000;
     }
 
+    public void release(){
+        if(extractor!=null){
+            extractor.release();
+        }
+    }
+
     public static class Data {
         public long positionUs;
         public long durationUs;
@@ -119,7 +129,7 @@ public class AudioCodec {
 
         @Override
         public String toString() {
-            return "positionUs=" + positionUs + " durationUs=" + durationUs + " len=" + bytes.length;
+            return "positionUs=" + positionUs + " durationUs=" + durationUs + " len=" + (bytes != null ? bytes.length : 0);
         }
     }
 }

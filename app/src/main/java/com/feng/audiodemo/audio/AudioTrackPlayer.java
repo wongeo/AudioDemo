@@ -8,9 +8,11 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.util.Log;
 
+import com.feng.audiodemo.audio.IPlayer.*;
+
 import java.io.IOException;
 
-public class AudioTrackPlayer {
+public class AudioTrackPlayer implements IPlayer{
     public static final String TAG = "AudioTrackPlayer";
 
     private Context mContext;
@@ -19,15 +21,6 @@ public class AudioTrackPlayer {
 
     public int getMediaPlayerId() {
         return mAudioTrack.getAudioSessionId();
-    }
-
-    public enum State {
-        NONE,
-        LOADING,
-        START,
-        PAUSE,
-        ERROR,
-        STOP,
     }
 
     private volatile State mState = State.NONE;
@@ -55,6 +48,7 @@ public class AudioTrackPlayer {
     /**
      * 设置播放地址
      */
+    @Override
     public void setDataSource(String uri) {
         mUri = uri;
     }
@@ -108,7 +102,7 @@ public class AudioTrackPlayer {
         Log.d(TAG, "开始填充数据...");
         ISource fis = null;
         try {
-            if (uri.endsWith(".mp3")) {
+            if (uri.endsWith(".mp3") || uri.endsWith(".mp4")) {
                 fis = new FileSourceWithCodec(uri);
             } else {
                 fis = new FileSource(uri);
@@ -131,6 +125,7 @@ public class AudioTrackPlayer {
                     mAudioTrack.play();
                 }
             }
+            Log.d(TAG, "complete");
         } catch (Exception ex) {
             String msg = Log.getStackTraceString(ex);
             Log.d(TAG, msg);
@@ -138,7 +133,6 @@ public class AudioTrackPlayer {
             mOnErrorListener.onError(-1, msg);
         } finally {
             ISource.close(fis);
-            Log.d(TAG, "complete");
             reset();
         }
     }
@@ -150,6 +144,7 @@ public class AudioTrackPlayer {
         }
     }
 
+    @Override
     public void start() {
         synchronized (mLock) {
             mIsPause = false;
@@ -157,6 +152,7 @@ public class AudioTrackPlayer {
         }
     }
 
+    @Override
     public void pause() {
         synchronized (mLock) {
             if (mState == State.START) {
@@ -196,13 +192,5 @@ public class AudioTrackPlayer {
         mState = state;
         Log.d(TAG, "onStateChange from=" + from + " to=" + state);
         mOnStateChangeListener.onChange(from, state);
-    }
-
-    public interface OnStateChangeListener {
-        void onChange(State src, State desc);
-    }
-
-    public interface OnErrorListener {
-        void onError(int code, String msg);
     }
 }

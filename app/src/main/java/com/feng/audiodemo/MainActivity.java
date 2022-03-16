@@ -15,11 +15,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 
 import com.feng.audiodemo.adapter.FileAdapter;
 import com.feng.audiodemo.adapter.Item;
+import com.feng.audiodemo.audio.AudioPlayer;
 import com.feng.audiodemo.audio.AudioRecorder;
 import com.feng.audiodemo.audio.AudioTrackPlayer;
+import com.feng.audiodemo.audio.IPlayer;
 import com.feng.audiodemo.view.AudioView;
 
 import java.io.File;
@@ -36,8 +39,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private AudioRecorder mAudioRecorder;
 
     private Button mRecordButton, mPlaylistButton, mPlayButton, mTranscodeButton;
-
+    private TextView mTextView;
     private AudioTrackPlayer mTrackPlayer;
+    private IPlayer mPlayer;
     private AudioView audioView, audioView2;
 
     @Override
@@ -50,6 +54,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void initView() {
+        mTextView = findViewById(R.id.log_txt);
         mRecordButton = findViewById(R.id.record_btn);
         mPlaylistButton = findViewById(R.id.play_list_btn);
         mPlayButton = findViewById(R.id.play_btn);
@@ -64,8 +69,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void initPlayer() {
-        mTrackPlayer = new AudioTrackPlayer(this);
-        mTrackPlayer.setOnStateChangeListener(mOnStateChangeListener);
+//        mPlayer = new AudioPlayer(this);
+        mPlayer = new AudioTrackPlayer(this);
+        mPlayer.setOnStateChangeListener(mOnStateChangeListener);
+        mPlayer.setOnErrorListener(mOnErrorListener);
     }
 
     @Override
@@ -199,36 +206,46 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     public void onStartOrPause() {
-        AudioTrackPlayer.State state = mTrackPlayer.getState();
-        if (state == AudioTrackPlayer.State.START) {
-            mTrackPlayer.pause();
-        } else if (state == AudioTrackPlayer.State.PAUSE) {
-            mTrackPlayer.start();
+        IPlayer.State state = mPlayer.getState();
+        if (state == IPlayer.State.START) {
+            mPlayer.pause();
+        } else if (state == IPlayer.State.PAUSE) {
+            mPlayer.start();
         }
     }
 
     private void onPlay(String uri) {
-        mTrackPlayer.stop();
-        mTrackPlayer.setDataSource(uri);
-        mTrackPlayer.prepare();
+//        mTrackPlayer.stop();
+//        mTrackPlayer.setDataSource(uri);
+//        mTrackPlayer.prepare();
+        mPlayer.stop();
+        mPlayer.setDataSource(uri);
+        mPlayer.prepare();
     }
 
 
-    private final AudioTrackPlayer.OnStateChangeListener mOnStateChangeListener = (src, desc) -> runOnUiThread(() -> handleStateChangeOnUiThread(src, desc));
+    private final IPlayer.OnStateChangeListener mOnStateChangeListener = (src, desc) -> runOnUiThread(() -> handleStateChangeOnUiThread(src, desc));
 
-    private void handleStateChangeOnUiThread(AudioTrackPlayer.State src, AudioTrackPlayer.State desc) {
-        if (desc == AudioTrackPlayer.State.START) {
+    private void handleStateChangeOnUiThread(IPlayer.State src, IPlayer.State desc) {
+        if (desc == IPlayer.State.START) {
             mPlayButton.setText("暂停");
             initVisualizer();
-        } else if (desc == AudioTrackPlayer.State.PAUSE) {
+        } else if (desc == IPlayer.State.PAUSE) {
             mPlayButton.setText("播放");
         }
+    }
+
+    private final IPlayer.OnErrorListener mOnErrorListener = (code, msg) -> runOnUiThread(() -> handleError(code, msg));
+
+    private void handleError(int code, String msg) {
+
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         mTrackPlayer.stop();
+        mPlayer.stop();
     }
 
     private static final String[] sPermissions = {
