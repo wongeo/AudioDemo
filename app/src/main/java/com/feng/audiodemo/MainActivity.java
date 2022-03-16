@@ -19,9 +19,8 @@ import android.widget.TextView;
 
 import com.feng.audiodemo.adapter.FileAdapter;
 import com.feng.audiodemo.adapter.Item;
-import com.feng.audiodemo.audio.AudioPlayer;
 import com.feng.audiodemo.audio.AudioRecorder;
-import com.feng.audiodemo.audio.AudioTrackPlayer;
+import com.feng.audiodemo.audio.AudioPlayer;
 import com.feng.audiodemo.audio.IPlayer;
 import com.feng.audiodemo.view.AudioView;
 
@@ -31,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Logger;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
@@ -40,7 +38,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private Button mRecordButton, mPlaylistButton, mPlayButton, mTranscodeButton;
     private TextView mTextView;
-    private AudioTrackPlayer mTrackPlayer;
+    private AudioPlayer mTrackPlayer;
     private IPlayer mPlayer;
     private AudioView audioView, audioView2;
 
@@ -69,8 +67,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void initPlayer() {
-//        mPlayer = new AudioPlayer(this);
-        mPlayer = new AudioTrackPlayer(this);
+        mPlayer = new AudioPlayer(this);
         mPlayer.setOnStateChangeListener(mOnStateChangeListener);
         mPlayer.setOnErrorListener(mOnErrorListener);
     }

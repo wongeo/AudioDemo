@@ -16,7 +16,7 @@ import java.nio.ByteBuffer;
  * 解码
  */
 public class AudioCodec {
-    private static final long TIME_OUT_US = 15 * 1000 * 1000;
+    private static final long TIME_OUT_US = 10 * 1000;
     public static final String TAG = "AudioCodec";
     private final String mFilePath;
     private MediaCodec codec;
@@ -86,20 +86,16 @@ public class AudioCodec {
         //此处建议不要填-1 有些时候并没有数据输出，那么他就会一直卡在这 等待,此处单位为微秒
         int outputBufferIndex = codec.dequeueOutputBuffer(decodeBufferInfo, TIME_OUT_US);//如果timeoutUs填写数字较低，不如10000，会经常返回-1
 
-        switch (outputBufferIndex) {
-            case MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED:
-            case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
-            case MediaCodec.INFO_TRY_AGAIN_LATER:
-                data.code = outputBufferIndex;
-                break;
-            default:
-                data.code = 0;
-                ByteBuffer outputBuffer = codec.getOutputBuffer(outputBufferIndex);//拿到用于存放PCM数据的Buffer
-                data.bytes = new byte[decodeBufferInfo.size];
-                outputBuffer.get(data.bytes, 0, data.bytes.length);
-                codec.releaseOutputBuffer(outputBufferIndex, true);
-                Log.d(TAG, data.toString());
-                break;
+        if (outputBufferIndex >= 0) {
+            data.code = 0;
+            ByteBuffer outputBuffer = codec.getOutputBuffer(outputBufferIndex);//拿到用于存放PCM数据的Buffer
+            data.bytes = new byte[decodeBufferInfo.size];
+            outputBuffer.get(data.bytes, 0, data.bytes.length);
+            codec.releaseOutputBuffer(outputBufferIndex, true);
+            Log.d(TAG, data.toString());
+        } else {
+            //继续下一帧
+            data.code = -1;
         }
         return data;
     }
@@ -112,8 +108,8 @@ public class AudioCodec {
         return mDurationUs / 1000;
     }
 
-    public void release(){
-        if(extractor!=null){
+    public void release() {
+        if (extractor != null) {
             extractor.release();
         }
     }

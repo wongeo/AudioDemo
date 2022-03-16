@@ -4,168 +4,185 @@ import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
-import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.os.Build;
 import android.util.Log;
 
-import androidx.annotation.RequiresApi;
+import com.feng.audiodemo.audio.IPlayer.*;
 
-import java.nio.ByteBuffer;
+import java.io.IOException;
 
-public class AudioPlayer implements IPlayer {
+public class AudioPlayer implements IPlayer{
+    public static final String TAG = "AudioTrackPlayer";
 
-    private volatile AudioTrack mAudioTrack;
-    private String mUri;
-    private volatile boolean mIsRunning = false;
-    private OnStateChangeListener mOnStateChangeListener;
-    private final Object mLock = new Object();
-    private final Context mContext;
+    private Context mContext;
+    private AudioTrack mAudioTrack;
+    private Thread mPlayThread;
+
+    public int getMediaPlayerId() {
+        return mAudioTrack.getAudioSessionId();
+    }
+
+    private volatile State mState = State.NONE;
 
     public AudioPlayer(Context context) {
         mContext = context;
     }
 
-    @Override
+    private OnStateChangeListener mOnStateChangeListener;
+    private OnErrorListener mOnErrorListener;
 
-    public void setDataSource(String uri) {
-        mUri = uri;
-    }
-
-    @Override
-    public void stop() {
-        mIsRunning = false;
-    }
-
-    @Override
     public void setOnStateChangeListener(OnStateChangeListener listener) {
         mOnStateChangeListener = listener;
     }
 
-    @Override
-    public State getState() {
-        return mState;
+    public void setOnErrorListener(OnErrorListener onErrorListener) {
+        mOnErrorListener = onErrorListener;
     }
 
-    private volatile boolean mIsPause;
+    public static final int RATE_IN_HZ_16K = 16000;
+    public static final int RATE_IN_HZ_44K = 44100;
 
+    private String mUri;
+
+    /**
+     * 设置播放地址
+     */
     @Override
-    public void pause() {
-        synchronized (mLock) {
-            mIsPause = true;
+    public void setDataSource(String uri) {
+        mUri = uri;
+    }
+
+    /**
+     * 准备播放
+     */
+    public void prepare() {
+        mPlayThread = new PlayThread();
+        mPlayThread.start();
+    }
+
+    private final Object mLock = new Object();
+
+    private void handleTrackPlay(String uri) {
+
+        int sampleRateInHz = RATE_IN_HZ_44K;
+        int channelConfig = AudioFormat.CHANNEL_IN_STEREO;
+        int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(uri);
+            MediaFormat format = extractor.getTrackFormat(0);
+            sampleRateInHz = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        int bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
+        if (bufferSizeInBytes == AudioTrack.ERROR_BAD_VALUE) {
+            Log.e(TAG, "Invalid parameter !");
+            return;
+        }
+        Log.i(TAG, "bufferSizeInBytes = " + bufferSizeInBytes + " bytes !");
+
+        byte[] data = new byte[bufferSizeInBytes];
+        mAudioTrack = new AudioTrack(
+                AudioManager.STREAM_MUSIC,      //streamType 流类型，AudioManager 中定义了音频的类型，可大致分为 STREAM_MUSIC 、 STREAM_RINHG 等
+                sampleRateInHz,                 //sampleRateInHz 采样率，播放的音频每秒有多少次采样
+                channelConfig,                  //channelConfig 声道数配置，单声道和双声道
+                audioFormat,                    //audioFormat 数据位宽，选择 16bit ，能够兼容所有 Android 设备
+                bufferSizeInBytes,              //bufferSizeInBytes 缓冲区大小，通过 AudioTrack.getMinBufferSize 运算得出
+                AudioTrack.MODE_STREAM          //mode 播放模式 ： MODE_STATIC 一次写入，MODE_STREAM 多次写入
+        );
+        if (mAudioTrack.getState() == AudioTrack.STATE_UNINITIALIZED) {
+            Log.e(TAG, "初始化失败 !");
+            return;
+        }
+
+        Log.d(TAG, "开始填充数据...");
+        ISource fis = null;
+        try {
+            if (uri.endsWith(".mp3") || uri.endsWith(".mp4")) {
+                fis = new FileSourceWithCodec(uri);
+            } else {
+                fis = new FileSource(uri);
+            }
+            onStateChange(State.START);
+            mIsRunning = true;
+            mIsPause = false;
+            int len;
+            while ((len = fis.read(data)) > 0) {
+                synchronized (mLock) {
+                    if (mIsPause) {
+                        onStateChange(State.PAUSE);
+                        mLock.wait();
+                        onStateChange(State.START);
+                    } else if (!mIsRunning) {
+                        onStateChange(State.STOP);
+                        break;
+                    }
+                    mAudioTrack.write(data, 0, len);
+                    mAudioTrack.play();
+                }
+            }
+            Log.d(TAG, "complete");
+        } catch (Exception ex) {
+            String msg = Log.getStackTraceString(ex);
+            Log.d(TAG, msg);
+            onStateChange(State.ERROR);
+            mOnErrorListener.onError(-1, msg);
+        } finally {
+            ISource.close(fis);
+            reset();
         }
     }
 
-    @Override
-    public void prepare() {
-        new Thread(() -> onPrepare()).start();
+    private final class PlayThread extends Thread {
+        @Override
+        public void run() {
+            handleTrackPlay(mUri);
+        }
     }
 
     @Override
     public void start() {
         synchronized (mLock) {
-            if (mIsPause) {
-                mIsPause = false;
-                mLock.notify();
-            } else {
-                prepare();
-            }
-        }
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    private void onPrepare() {
-        MediaExtractor extractor = new MediaExtractor();
-        MediaCodec audioCodec = null;
-        try {
-            extractor.setDataSource(mUri);
-            for (int i = 0; i < extractor.getTrackCount(); i++) {
-                MediaFormat mediaFormat = extractor.getTrackFormat(i);
-                String mimeType = mediaFormat.getString(MediaFormat.KEY_MIME);
-                if (mimeType.startsWith("audio/")) {
-                    extractor.selectTrack(i);
-                    int channelConfig = mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
-                    int sampleRateInHz = mediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE);
-
-                    int bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRateInHz, channelConfig, AudioFormat.ENCODING_PCM_16BIT);
-
-                    mAudioTrack = new AudioTrack(
-                            AudioManager.STREAM_MUSIC,
-                            sampleRateInHz,
-                            (channelConfig == 1 ? AudioFormat.CHANNEL_OUT_MONO : AudioFormat.CHANNEL_OUT_STEREO),
-                            AudioFormat.ENCODING_PCM_16BIT,
-                            bufferSizeInBytes,
-                            AudioTrack.MODE_STREAM);
-                    mAudioTrack.play();
-                    //创建解码器
-                    audioCodec = MediaCodec.createDecoderByType(mimeType);
-                    audioCodec.configure(mediaFormat, null, null, 0);
-                    break;
-                }
-            }
-            audioCodec.start();
-            mIsRunning = true;
             mIsPause = false;
-            onStateChange(State.START);
-
-            MediaCodec.BufferInfo decodeBufferInfo = new MediaCodec.BufferInfo();
-            while (mIsRunning) {
-                int inputIndex = audioCodec.dequeueInputBuffer(10_000);
-                if (inputIndex < 0) {
-                    mIsRunning = false;
-                }
-                ByteBuffer inputBuffer = audioCodec.getInputBuffer(inputIndex);
-                inputBuffer.clear();
-                int sampleSize = extractor.readSampleData(inputBuffer, 0);
-                if (sampleSize > 0) {
-                    audioCodec.queueInputBuffer(inputIndex, 0, sampleSize, extractor.getSampleTime(), 0);
-                    extractor.advance();
-                } else {
-                    mIsRunning = false;
-                }
-
-                int outputIndex = audioCodec.dequeueOutputBuffer(decodeBufferInfo, 10_000);
-                ByteBuffer outputBuffer;
-                byte[] chunkPCM;
-                while (outputIndex >= 0) {
-                    outputBuffer = audioCodec.getOutputBuffer(outputIndex);
-                    chunkPCM = new byte[decodeBufferInfo.size];
-                    outputBuffer.get(chunkPCM);
-                    outputBuffer.clear();
-                    AudioTrack track = mAudioTrack;
-                    if (track != null) {
-                        synchronized (mLock) {
-                            if (mIsPause) {
-                                onStateChange(State.PAUSE);
-                                mLock.wait();
-                                onStateChange(State.START);
-                            } else if (!mIsRunning) {
-                                onStateChange(State.STOP);
-                                break;
-                            }
-                        }
-                        track.write(chunkPCM, 0, decodeBufferInfo.size);
-                        audioCodec.releaseOutputBuffer(outputIndex, false);
-                        outputIndex = audioCodec.dequeueOutputBuffer(decodeBufferInfo, 10_000);
-                    }
-
-                }
-            }
-            Log.d(TAG, "complete");
-        } catch (Exception e) {
-            String msg = Log.getStackTraceString(e);
-            Log.d(TAG, msg);
-            onStateChange(State.ERROR);
-            mOnErrorListener.onError(-1, msg);
+            mLock.notify();
         }
-        audioCodec.stop();
-        audioCodec.release();
-        extractor.release();
     }
 
-    private State mState = State.NONE;
-    public static final String TAG = "AudioPlayer";
+    @Override
+    public void pause() {
+        synchronized (mLock) {
+            if (mState == State.START) {
+                mIsPause = true;
+            }
+        }
+    }
+
+    public void reset() {
+        synchronized (mLock) {
+            if (mAudioTrack != null) {
+                mAudioTrack.stop();
+                mAudioTrack.release();
+            }
+        }
+    }
+
+    //控制变量，用来控制停止和暂停
+    private boolean mIsPause;
+    private boolean mIsRunning;
+
+    public void stop() {
+        synchronized (mLock) {
+            mIsRunning = false;
+        }
+    }
+
+    public State getState() {
+        return mState;
+    }
 
     /**
      * 播放状态切换回调
@@ -175,12 +192,5 @@ public class AudioPlayer implements IPlayer {
         mState = state;
         Log.d(TAG, "onStateChange from=" + from + " to=" + state);
         mOnStateChangeListener.onChange(from, state);
-    }
-
-    private OnErrorListener mOnErrorListener;
-
-    @Override
-    public void setOnErrorListener(OnErrorListener onErrorListener) {
-        mOnErrorListener = onErrorListener;
     }
 }

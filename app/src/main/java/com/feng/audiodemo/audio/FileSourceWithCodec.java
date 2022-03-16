@@ -31,15 +31,18 @@ public class FileSourceWithCodec implements ISource {
             //读取解码后的数据
             AudioCodec.Data raw = codec.read();
             int code = raw.code;
-            if (code == -2 || code == -3) {
-                //忽略继续读下一次的
-                continue;
-            }
-            if (code == -1) {
+
+            if (code == -400) {
                 //数据已经读完
                 len = -1;
                 break;
             }
+
+            if (code < 0) {
+                //忽略继续读下一次的
+                continue;
+            }
+
             bytes = raw.bytes;
             if (offset + bytes.length > data.length) {
                 break;
