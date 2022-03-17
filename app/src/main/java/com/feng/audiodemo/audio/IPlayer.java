@@ -29,10 +29,7 @@ public interface IPlayer {
     }
 
     interface OnStateChangeListener {
-
         void onChange(State src, State desc);
-
-
     }
 
     interface OnErrorListener {

@@ -1,5 +1,6 @@
 package com.feng.audiodemo;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -13,6 +14,8 @@ import android.content.pm.PackageManager;
 import android.media.audiofx.Visualizer;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -22,6 +25,7 @@ import com.feng.audiodemo.adapter.Item;
 import com.feng.audiodemo.audio.AudioRecorder;
 import com.feng.audiodemo.audio.AudioPlayer;
 import com.feng.audiodemo.audio.IPlayer;
+import com.feng.audiodemo.audio.Mp4Player;
 import com.feng.audiodemo.view.AudioView;
 
 import java.io.File;
@@ -39,7 +43,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Button mRecordButton, mPlaylistButton, mPlayButton, mTranscodeButton;
     private TextView mTextView;
     private AudioPlayer mTrackPlayer;
-    private IPlayer mPlayer;
+    //    private IPlayer mPlayer;
+    private Mp4Player mPlayer;
     private AudioView audioView, audioView2;
 
     @Override
@@ -60,6 +65,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         audioView = findViewById(R.id.audioView1);
         audioView2 = findViewById(R.id.audioView2);
 
+        SurfaceView surfaceView = findViewById(R.id.surfaceView);
+        surfaceView.getHolder().addCallback(mSurfaceCallback);
+
         mRecordButton.setOnClickListener(this);
         mPlaylistButton.setOnClickListener(this);
         mPlayButton.setOnClickListener(this);
@@ -67,7 +75,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void initPlayer() {
-        mPlayer = new AudioPlayer(this);
+        mPlayer = new Mp4Player(this);
         mPlayer.setOnStateChangeListener(mOnStateChangeListener);
         mPlayer.setOnErrorListener(mOnErrorListener);
     }
@@ -84,6 +92,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             onTranscodeButton();
         }
     }
+
+    private SurfaceHolder.Callback mSurfaceCallback = new SurfaceHolder.Callback() {
+
+        @Override
+        public void surfaceCreated(@NonNull SurfaceHolder holder) {
+            mPlayer.setSurface(holder.getSurface());
+        }
+
+        @Override
+        public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
+
+        }
+
+        @Override
+        public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
+
+        }
+    };
 
     private Visualizer.OnDataCaptureListener dataCaptureListener = new Visualizer.OnDataCaptureListener() {
         @Override
