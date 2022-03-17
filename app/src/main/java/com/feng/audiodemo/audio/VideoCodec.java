@@ -9,7 +9,7 @@ import android.view.Surface;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class VideoPlayer {
+public class VideoCodec {
     private volatile boolean mIsPlaying = false;
     private Surface mSurface;
     private volatile boolean mEOF = false;

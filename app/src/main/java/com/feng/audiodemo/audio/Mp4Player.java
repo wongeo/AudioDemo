@@ -6,27 +6,23 @@ import android.view.Surface;
 
 public class Mp4Player implements IPlayer {
     private AudioPlayer mAudioPlayer;
-    private VideoPlayer mVideoPlayer;
 
     public Mp4Player(Context context) {
         mAudioPlayer = new AudioPlayer(context);
-        mVideoPlayer = new VideoPlayer();
     }
 
     public void setSurface(Surface surface) {
-        mVideoPlayer.setSurface(surface);
+        mAudioPlayer.setSurface(surface);
     }
 
     @Override
     public void setDataSource(String uri) {
         mAudioPlayer.setDataSource(uri);
-        mVideoPlayer.setDataSource(uri);
     }
 
     @Override
     public void prepare() {
         mAudioPlayer.prepare();
-        mVideoPlayer.prepare();
     }
 
     @Override

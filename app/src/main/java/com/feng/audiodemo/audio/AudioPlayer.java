@@ -4,14 +4,12 @@ import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
-import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.os.Build;
 import android.util.Log;
+import android.view.Surface;
 
 import androidx.annotation.RequiresApi;
-
-import java.io.IOException;
 
 @RequiresApi(api = Build.VERSION_CODES.Q)
 public class AudioPlayer implements IPlayer {
@@ -19,7 +17,6 @@ public class AudioPlayer implements IPlayer {
 
     private Context mContext;
     private AudioTrack mAudioTrack;
-    private Thread mPlayThread;
 
     public int getMediaPlayerId() {
         return mAudioTrack.getAudioSessionId();
@@ -27,8 +24,11 @@ public class AudioPlayer implements IPlayer {
 
     private volatile State mState = State.NONE;
 
+    private VideoCodec mVideoCodec;
+
     public AudioPlayer(Context context) {
         mContext = context;
+
     }
 
     private OnStateChangeListener mOnStateChangeListener;
@@ -40,6 +40,12 @@ public class AudioPlayer implements IPlayer {
 
     public void setOnErrorListener(OnErrorListener onErrorListener) {
         mOnErrorListener = onErrorListener;
+    }
+
+    private Surface mSurface;
+
+    public void setSurface(Surface surface) {
+        mSurface = surface;
     }
 
     public static final int RATE_IN_HZ_16K = 16000;
@@ -59,8 +65,7 @@ public class AudioPlayer implements IPlayer {
      * 准备播放
      */
     public void prepare() {
-        mPlayThread = new PlayThread();
-        mPlayThread.start();
+        new PlayThread().start();
     }
 
     private final Object mLock = new Object();
@@ -102,6 +107,11 @@ public class AudioPlayer implements IPlayer {
                 return;
             }
             Log.d(TAG, "开始填充数据...");
+
+            mVideoCodec = new VideoCodec();
+            mVideoCodec.setDataSource(mUri);
+            mVideoCodec.setSurface(mSurface);
+            mVideoCodec.prepare();
 
             onStateChange(State.START);
             mIsRunning = true;
