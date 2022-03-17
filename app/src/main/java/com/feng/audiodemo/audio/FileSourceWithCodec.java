@@ -1,5 +1,7 @@
 package com.feng.audiodemo.audio;
 
+import android.media.MediaFormat;
+
 import java.io.IOException;
 
 /**
@@ -15,6 +17,11 @@ public class FileSourceWithCodec implements ISource {
 
     //上次遗留的字节，需要下次优先追加上
     private byte[] bytes;
+
+    @Override
+    public MediaFormat getMediaFormat() {
+        return codec.getMediaFormat();
+    }
 
     @Override
     public int read(byte[] data) throws IOException {

@@ -22,6 +22,7 @@ public class AudioCodec {
     private MediaCodec codec;
     private MediaExtractor extractor;
     private long mDurationUs;
+    private MediaFormat mMediaFormat;
 
     private int rangeStart, rangeEnd;
 
@@ -36,6 +37,10 @@ public class AudioCodec {
         return audioCodec;
     }
 
+    public MediaFormat getMediaFormat() {
+        return mMediaFormat;
+    }
+
     /**
      * 初始化解码器
      */
@@ -44,14 +49,14 @@ public class AudioCodec {
         extractor.setDataSource(mFilePath);
         int numTracks = extractor.getTrackCount();
         for (int i = 0; i < numTracks; i++) {
-            MediaFormat format = extractor.getTrackFormat(i);
-            String mine = format.getString(MediaFormat.KEY_MIME);
+            mMediaFormat = extractor.getTrackFormat(i);
+            String mine = mMediaFormat.getString(MediaFormat.KEY_MIME);
             if (!TextUtils.isEmpty(mine) && mine.startsWith("audio")) {//获取音频轨道
                 extractor.selectTrack(i);//选择此音频轨道
-                mDurationUs = format.getLong(MediaFormat.KEY_DURATION);
+                mDurationUs = mMediaFormat.getLong(MediaFormat.KEY_DURATION);
                 //创建Decode解码器
                 codec = MediaCodec.createDecoderByType(mine);
-                codec.configure(format, null, null, 0);
+                codec.configure(mMediaFormat, null, null, 0);
                 break;
             }
         }

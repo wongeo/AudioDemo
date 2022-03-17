@@ -25,6 +25,7 @@ public interface IPlayer {
         PAUSE,
         ERROR,
         STOP,
+        COMPLETED,
     }
 
     interface OnStateChangeListener {

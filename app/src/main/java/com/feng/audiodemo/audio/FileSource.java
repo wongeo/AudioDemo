@@ -1,5 +1,7 @@
 package com.feng.audiodemo.audio;
 
+import android.media.MediaFormat;
+
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -11,6 +13,11 @@ public class FileSource implements ISource {
 
     public FileSource(String filePath) throws FileNotFoundException {
         is = new FileInputStream(filePath);
+    }
+
+    @Override
+    public MediaFormat getMediaFormat() {
+        return null;
     }
 
     @Override

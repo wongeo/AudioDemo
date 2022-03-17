@@ -6,14 +6,16 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.util.Log;
 
-import com.feng.audiodemo.audio.IPlayer.*;
+import androidx.annotation.RequiresApi;
 
 import java.io.IOException;
 
-public class AudioPlayer implements IPlayer{
-    public static final String TAG = "AudioTrackPlayer";
+@RequiresApi(api = Build.VERSION_CODES.Q)
+public class AudioPlayer implements IPlayer {
+    public static final String TAG = "AudioPlayer";
 
     private Context mContext;
     private AudioTrack mAudioTrack;
@@ -69,44 +71,38 @@ public class AudioPlayer implements IPlayer{
         int channelConfig = AudioFormat.CHANNEL_IN_STEREO;
         int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
 
-        MediaExtractor extractor = new MediaExtractor();
-        try {
-            extractor.setDataSource(uri);
-            MediaFormat format = extractor.getTrackFormat(0);
-            sampleRateInHz = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        int bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
-        if (bufferSizeInBytes == AudioTrack.ERROR_BAD_VALUE) {
-            Log.e(TAG, "Invalid parameter !");
-            return;
-        }
-        Log.i(TAG, "bufferSizeInBytes = " + bufferSizeInBytes + " bytes !");
-
-        byte[] data = new byte[bufferSizeInBytes];
-        mAudioTrack = new AudioTrack(
-                AudioManager.STREAM_MUSIC,      //streamType 流类型，AudioManager 中定义了音频的类型，可大致分为 STREAM_MUSIC 、 STREAM_RINHG 等
-                sampleRateInHz,                 //sampleRateInHz 采样率，播放的音频每秒有多少次采样
-                channelConfig,                  //channelConfig 声道数配置，单声道和双声道
-                audioFormat,                    //audioFormat 数据位宽，选择 16bit ，能够兼容所有 Android 设备
-                bufferSizeInBytes,              //bufferSizeInBytes 缓冲区大小，通过 AudioTrack.getMinBufferSize 运算得出
-                AudioTrack.MODE_STREAM          //mode 播放模式 ： MODE_STATIC 一次写入，MODE_STREAM 多次写入
-        );
-        if (mAudioTrack.getState() == AudioTrack.STATE_UNINITIALIZED) {
-            Log.e(TAG, "初始化失败 !");
-            return;
-        }
-
-        Log.d(TAG, "开始填充数据...");
         ISource fis = null;
         try {
-            if (uri.endsWith(".mp3") || uri.endsWith(".mp4")) {
-                fis = new FileSourceWithCodec(uri);
-            } else {
+            if (uri.endsWith(".pcm") || uri.endsWith(".wav")) {
                 fis = new FileSource(uri);
+            } else {
+                fis = new FileSourceWithCodec(uri);
             }
+            MediaFormat format = fis.getMediaFormat();
+            sampleRateInHz = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+
+            int bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
+            if (bufferSizeInBytes == AudioTrack.ERROR_BAD_VALUE) {
+                Log.e(TAG, "Invalid parameter !");
+                return;
+            }
+            Log.i(TAG, "bufferSizeInBytes = " + bufferSizeInBytes + " bytes !");
+            byte[] data = new byte[bufferSizeInBytes];
+            mAudioTrack = new AudioTrack(
+                    AudioManager.STREAM_MUSIC,  //streamType 流类型，AudioManager 中定义了音频的类型，可大致分为 STREAM_MUSIC 、 STREAM_RINHG 等
+                    sampleRateInHz,             //sampleRateInHz 采样率，播放的音频每秒有多少次采样
+                    channelConfig,              //channelConfig 声道数配置，单声道和双声道
+                    audioFormat,                //audioFormat 数据位宽，选择 16bit ，能够兼容所有 Android 设备
+                    bufferSizeInBytes,          //bufferSizeInBytes 缓冲区大小，通过 AudioTrack.getMinBufferSize 运算得出
+                    AudioTrack.MODE_STREAM      //mode 播放模式 ： MODE_STATIC 一次写入，MODE_STREAM 多次写入
+            );
+
+            if (mAudioTrack.getState() == AudioTrack.STATE_UNINITIALIZED) {
+                Log.e(TAG, "初始化失败 !");
+                return;
+            }
+            Log.d(TAG, "开始填充数据...");
+
             onStateChange(State.START);
             mIsRunning = true;
             mIsPause = false;
@@ -126,6 +122,7 @@ public class AudioPlayer implements IPlayer{
                 }
             }
             Log.d(TAG, "complete");
+            onStateChange(State.COMPLETED);
         } catch (Exception ex) {
             String msg = Log.getStackTraceString(ex);
             Log.d(TAG, msg);
