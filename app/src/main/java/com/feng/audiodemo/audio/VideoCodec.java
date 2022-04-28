@@ -15,6 +15,13 @@ public class VideoCodec {
     private volatile boolean mEOF = false;
     private String mUri;
 
+    public VideoCodec(Surface surface, String uri) {
+        mSurface = surface;
+        mUri = uri;
+
+        init();
+    }
+
     public void setSurface(Surface surface) {
         mSurface = surface;
     }
@@ -24,28 +31,22 @@ public class VideoCodec {
     }
 
     public void prepare() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                onStart();
-            }
-        }).start();
+        new Thread(this::onStart).start();
     }
 
-    public void stop() {
-        mIsPlaying = true;
-    }
+    private MediaExtractor videoExtractor;
+    private MediaCodec videoCodec;
+    long startWhen = 0;
 
-    private void onStart() {
-        MediaExtractor videoExtractor = new MediaExtractor();
-        MediaCodec videoCodec = null;
-        long startWhen = 0;
+    private void init() {
+        videoExtractor = new MediaExtractor();
+        videoCodec = null;
+
         try {
             videoExtractor.setDataSource(mUri);
         } catch (IOException e) {
             e.printStackTrace();
         }
-        boolean firstFrame = false;
         for (int i = 0; i < videoExtractor.getTrackCount(); i++) {
             MediaFormat mediaFormat = videoExtractor.getTrackFormat(i);
             String mimeType = mediaFormat.getString(MediaFormat.KEY_MIME);
@@ -64,43 +65,56 @@ public class VideoCodec {
             return;
         }
         videoCodec.start();
-        while (!mEOF) {
-            MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-            ByteBuffer[] inputBuffers = videoCodec.getInputBuffers();
-            int inputIndex = videoCodec.dequeueInputBuffer(10_000);
-            if (inputIndex > 0) {
-                ByteBuffer byteBuffer = inputBuffers[inputIndex];
-                int sampleSize = videoExtractor.readSampleData(byteBuffer, 0);
-                if (sampleSize > 0) {
-                    videoCodec.queueInputBuffer(inputIndex, 0, sampleSize, videoExtractor.getSampleTime(), 0);
-                    videoExtractor.advance();
-                } else {
-                    videoCodec.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                }
-            }
+    }
 
-            int outputIndex = videoCodec.dequeueOutputBuffer(bufferInfo, 10_000);
+    public void stop() {
+        mIsPlaying = true;
+    }
 
-            if (outputIndex >= 0) {
-                if (!firstFrame) {
-                    startWhen = System.currentTimeMillis();
-                    firstFrame = true;
-                }
-                long sleepTime = (bufferInfo.presentationTimeUs / 1000) - (System.currentTimeMillis() - startWhen);
-                if (sleepTime > 0) {
-                    SystemClock.sleep(sleepTime);
-                }
-                videoCodec.releaseOutputBuffer(outputIndex, true);
-            }
-            if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                mEOF = true;
-                break;
-            }
+    private boolean firstFrame;
+
+    private void onStart() {
+        boolean hasNextFrame = true;
+        while (hasNextFrame) {
+            hasNextFrame = nextFrame();
         }
-
         videoCodec.stop();
         videoCodec.release();
         videoExtractor.release();
     }
 
+    public boolean nextFrame() {
+        boolean hasNextFrame = true;
+        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+        ByteBuffer[] inputBuffers = videoCodec.getInputBuffers();
+        int inputIndex = videoCodec.dequeueInputBuffer(10_000);
+        if (inputIndex > 0) {
+            ByteBuffer byteBuffer = inputBuffers[inputIndex];
+            int sampleSize = videoExtractor.readSampleData(byteBuffer, 0);
+            if (sampleSize > 0) {
+                videoCodec.queueInputBuffer(inputIndex, 0, sampleSize, videoExtractor.getSampleTime(), 0);
+                videoExtractor.advance();
+            } else {
+                videoCodec.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+            }
+        }
+
+        int outputIndex = videoCodec.dequeueOutputBuffer(bufferInfo, 10_000);
+
+        if (outputIndex >= 0) {
+            if (!firstFrame) {
+                startWhen = System.currentTimeMillis();
+                firstFrame = true;
+            }
+            long sleepTime = (bufferInfo.presentationTimeUs / 1000) - (System.currentTimeMillis() - startWhen);
+            if (sleepTime > 0) {
+                SystemClock.sleep(sleepTime);
+            }
+            videoCodec.releaseOutputBuffer(outputIndex, true);
+        }
+        if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+            hasNextFrame = false;
+        }
+        return hasNextFrame;
+    }
 }

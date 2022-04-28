@@ -108,9 +108,7 @@ public class AudioPlayer implements IPlayer {
             }
             Log.d(TAG, "开始填充数据...");
 
-            mVideoCodec = new VideoCodec();
-            mVideoCodec.setDataSource(mUri);
-            mVideoCodec.setSurface(mSurface);
+            mVideoCodec = new VideoCodec(mSurface,mUri);
             mVideoCodec.prepare();
 
             onStateChange(State.START);
